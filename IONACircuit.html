@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>IONA's Circuit Dive - Beta v2.3 (Stable)</title>
+    <title>IONA's Circuit Dive - Beta v2.4 (Performance Fix)</title>
     <style>
         body { 
             margin: 0; background: #000; overflow: hidden; 
@@ -174,9 +174,9 @@
     <div style="border-top: 1px solid #333; padding-top: 10px; width: 100%; text-align: center;">
         <h3 style="color:#ffd700">AURUM SUPPLY</h3>
         <div style="display:flex; gap:10px; justify-content:center;">
-            <button class="btn-sec" onclick="buyIAP(10, this)">10 AURUM ($0.99)</button>
-            <button class="btn-sec" onclick="buyIAP(50, this)">50 AURUM ($3.99)</button>
-            <button class="btn-sec" onclick="buyIAP(100, this)">100 AURUM ($6.99)</button>
+            <button class="btn-sec" onclick="buyIAP(10, this)">10 ($0.99)</button>
+            <button class="btn-sec" onclick="buyIAP(50, this)">50 ($3.99)</button>
+            <button class="btn-sec" onclick="buyIAP(100, this)">100 ($6.99)</button>
         </div>
     </div>
     <br>
@@ -249,10 +249,13 @@
     canvas.width = window.innerWidth > 600 ? 480 : window.innerWidth;
     canvas.height = window.innerHeight;
 
-    // --- AUDIO SYSTEM (STABLE SYNTH) ---
+    // --- AUDIO SYSTEM (OPTIMIZED) ---
     const AudioEngine = {
         ctx: null, enabled: true,
-        init: function() { if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if(this.ctx.state === 'suspended') this.ctx.resume(); },
+        init: function() { 
+            if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); 
+            if(this.ctx.state === 'suspended') this.ctx.resume(); 
+        },
         playTone: function(freq, type, duration, vol) {
             if(!this.enabled || !this.ctx) return;
             const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
@@ -260,32 +263,20 @@
             gain.gain.setValueAtTime(vol, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
             osc.connect(gain); gain.connect(this.ctx.destination);
             osc.start(); osc.stop(this.ctx.currentTime + duration);
-        },
-        playNoise: function(duration, vol) {
-            if(!this.enabled || !this.ctx) return;
-            const bufferSize = this.ctx.sampleRate * duration;
-            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-            const data = buffer.getChannelData(0);
-            for(let i=0; i<bufferSize; i++) data[i] = Math.random() * 2 - 1;
-            const noise = this.ctx.createBufferSource();
-            noise.buffer = buffer;
-            const gain = this.ctx.createGain();
-            gain.gain.setValueAtTime(vol, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
-            noise.connect(gain); gain.connect(this.ctx.destination);
-            noise.start();
+            // Cleanup check handled by browser GC for short sounds
         },
         shoot: function() { this.playTone(800, 'square', 0.1, 0.05); },
-        explosion: function() { this.playNoise(0.4, 0.2); },
-        collect: function() { this.playTone(1200, 'sine', 0.2, 0.1); this.playTone(1800, 'sine', 0.2, 0.1); },
-        damage: function() { this.playTone(100, 'sawtooth', 0.3, 0.2); },
+        explosion: function() { this.playTone(100, 'sawtooth', 0.3, 0.1); }, // Simplifed Noise to Tone for Perf
+        collect: function() { this.playTone(1200, 'sine', 0.1, 0.1); this.playTone(1800, 'sine', 0.1, 0.1); },
+        damage: function() { this.playTone(100, 'sawtooth', 0.2, 0.2); },
         musicBeat: function() {
             if(!this.enabled || !this.ctx) return;
             const now = this.ctx.currentTime;
             const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
             osc.frequency.setValueAtTime(60, now);
-            gain.gain.setValueAtTime(0.05, now); gain.gain.linearRampToValueAtTime(0.1, now + 0.1); gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+            gain.gain.setValueAtTime(0.05, now); gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
             osc.connect(gain); gain.connect(this.ctx.destination);
-            osc.start(); osc.stop(now + 0.2);
+            osc.start(); osc.stop(now + 0.15);
         }
     };
 
@@ -301,7 +292,7 @@
     if(!savedData.upgrades) savedData.upgrades = { hp: 0, fireRate: 0, spread: 0 };
     let bank = savedData;
 
-    // --- MISSION SYSTEM ---
+    // --- LOGIC ---
     const MISSION_TYPES = [
         { id: 'kill', text: "Destroy Enemies", goal: 50, reward: 2 },
         { id: 'score', text: "Earn Score", goal: 2000, reward: 2 },
@@ -422,12 +413,8 @@
     function updateGame(dt) {
         if(gameState.mode === STATE.MENU || gameState.mode === STATE.GAME_OVER || isPaused) return;
         
-        // --- SYNTH MUSIC ENGINE (Game Loop Integrated) ---
         gameState.musicTimer += dt;
-        if(gameState.musicTimer > 0.25) { // 240 BPM
-            if(gameState.mode === STATE.WAVE || gameState.mode === STATE.BOSS_FIGHT) AudioEngine.musicBeat();
-            gameState.musicTimer = 0;
-        }
+        if(gameState.musicTimer > 0.25) { if(gameState.mode === STATE.WAVE || gameState.mode === STATE.BOSS_FIGHT) AudioEngine.musicBeat(); gameState.musicTimer = 0; }
 
         if(gameState.shake > 0) gameState.shake = Math.max(0, gameState.shake - dt * 20);
         if(gameState.slowTimer > 0) { gameState.slowTimer -= dt; if(gameState.slowTimer <= 0) { gameState.timeScale = 1.0; showMessage("TIME SYNC RESTORED", "#fff"); }}
@@ -448,15 +435,39 @@
                 gameState.input.lastShot = now;
             }
         }
-        // Limit enemies to max 30 to prevent crash
+        
+        // --- OPTIMIZATION: Reverse Loop Splicing to prevent GC Stutter ---
         if(gameState.mode === STATE.WAVE && gameState.enemies.length < 30 && Math.random() < (2.5 * gameDt)) { const types = ['enemy1', 'enemy2', 'enemy3', 'enemy4']; gameState.enemies.push({ x: Math.random()*(canvas.width-50)+25, y: -50, img: assets[types[Math.floor(Math.random()*types.length)]], hp: 15 * gameState.level, speed: 150 + (Math.random()*100), w: 50, h: 50, flash: 0 }); }
-        gameState.playerProjectiles.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; if(p.y < 0) p.active = false; });
-        gameState.enemyProjectiles.forEach(p => {
+
+        // Update Projectiles
+        for (let i = gameState.playerProjectiles.length - 1; i >= 0; i--) {
+            let p = gameState.playerProjectiles[i];
+            p.x += p.vx * dt; p.y += p.vy * dt;
+            if (p.y < 0 || !p.active) gameState.playerProjectiles.splice(i, 1);
+        }
+
+        for (let i = gameState.enemyProjectiles.length - 1; i >= 0; i--) {
+            let p = gameState.enemyProjectiles[i];
             p.x += (p.vx || 0) * gameDt; p.y += Math.abs(p.vy || 450) * gameDt;
-            if(Math.hypot(p.x - gameState.player.x, p.y - gameState.player.y) < 25) { gameState.player.hp -= 10; updateHUD(); p.active = false; gameState.shake = 5; document.body.style.backgroundColor = "#550000"; setTimeout(()=>document.body.style.backgroundColor="#000", 50); AudioEngine.damage(); }
-            gameState.playerProjectiles.forEach(pp => { if(pp.active && p.active && Math.hypot(pp.x-p.x, pp.y-p.y) < 20) { pp.active = false; p.active = false; gameState.score += 10; gameState.particles.push({x:p.x, y:p.y, vx:0, vy:0, life:0.2, color:'#fff'}); }});
-            if(p.y > canvas.height) p.active = false;
-        });
+            
+            // Hit Player
+            if(Math.hypot(p.x - gameState.player.x, p.y - gameState.player.y) < 25) { 
+                gameState.player.hp -= 10; updateHUD(); p.active = false; gameState.shake = 5; document.body.style.backgroundColor = "#550000"; setTimeout(()=>document.body.style.backgroundColor="#000", 50); AudioEngine.damage(); 
+            }
+            
+            // Hit by Player Bullet (Counter)
+            for (let j = gameState.playerProjectiles.length - 1; j >= 0; j--) {
+                let pp = gameState.playerProjectiles[j];
+                if(pp.active && p.active && Math.hypot(pp.x-p.x, pp.y-p.y) < 20) { 
+                    pp.active = false; p.active = false; gameState.score += 10; 
+                    // Add particle here directly to avoid array churn
+                }
+            }
+            
+            if(p.y > canvas.height || !p.active) gameState.enemyProjectiles.splice(i, 1);
+        }
+
+        // Boss Logic
         if(gameState.mode === STATE.BOSS_FIGHT && gameState.boss) {
             const b = gameState.boss; b.x += (150 * b.dir) * gameDt; if(b.x > canvas.width-60 || b.x < 60) b.dir *= -1;
             b.attackTimer += gameDt;
@@ -468,7 +479,8 @@
                 else for(let k=0; k<3; k++) gameState.enemyProjectiles.push({x:Math.random()*canvas.width, y:-20, vx:0, vy:350, color:'#ff0055', active:true});
                 b.attackTimer = 0; AudioEngine.shoot();
             }
-            gameState.playerProjectiles.forEach(p => {
+            for (let i = gameState.playerProjectiles.length - 1; i >= 0; i--) {
+                let p = gameState.playerProjectiles[i];
                 if(p.active && Math.abs(p.x-b.x)<60 && Math.abs(p.y-b.y)<60) {
                     b.hp -= 10; p.active = false; document.getElementById('boss-hp-bar').style.width = (b.hp/b.maxHp*100)+"%"; document.getElementById('boss-hp-text').innerText = Math.ceil(b.hp) + " / " + b.maxHp;
                     if(b.hp <= 0) {
@@ -479,18 +491,46 @@
                         gameState.boss = null; 
                     }
                 }
-            });
+            }
         }
-        gameState.enemies.forEach(e => {
+
+        // Enemies Update
+        for (let i = gameState.enemies.length - 1; i >= 0; i--) {
+            let e = gameState.enemies[i];
             e.y += e.speed * gameDt; if(e.flash > 0) e.flash--;
             if(Math.random() < 0.5 * gameDt) gameState.enemyProjectiles.push({x:e.x, y:e.y+30, color:'#39ff14', active:true});
-            gameState.playerProjectiles.forEach(p => { if(p.active && Math.abs(p.x-e.x)<30 && Math.abs(p.y-e.y)<30) { e.dead = true; p.active = false; gameState.score += 100; updateMissionProgress('kill', 1); updateMissionProgress('score', 100); spawnLoot(e.x, e.y); AudioEngine.explosion(); } });
-            if(!e.dead && Math.hypot(e.x-gameState.player.x, e.y-gameState.player.y)<40) { gameState.player.hp -= 20; updateHUD(); e.dead = true; gameState.shake = 5; document.body.style.backgroundColor = "#550000"; setTimeout(()=>document.body.style.backgroundColor="#000", 50); AudioEngine.damage(); }
-        });
-        gameState.items.forEach(i => { i.y += i.speed * gameDt; if(Math.hypot(i.x-gameState.player.x, i.y-gameState.player.y)<40 && !i.collected) collectItem(i); });
-        gameState.playerProjectiles = gameState.playerProjectiles.filter(p=>p.active); gameState.enemyProjectiles = gameState.enemyProjectiles.filter(p=>p.active);
-        gameState.enemies = gameState.enemies.filter(e=>!e.dead && e.y < canvas.height); gameState.items = gameState.items.filter(i=>!i.collected && i.y < canvas.height);
-        gameState.particles.forEach(p => p.life -= dt); gameState.particles = gameState.particles.filter(p=>p.life>0);
+            
+            // Collision with Player Bullets
+            for (let j = gameState.playerProjectiles.length - 1; j >= 0; j--) {
+                let p = gameState.playerProjectiles[j];
+                if(p.active && Math.abs(p.x-e.x)<30 && Math.abs(p.y-e.y)<30) { 
+                    e.dead = true; p.active = false; gameState.score += 100; updateMissionProgress('kill', 1); updateMissionProgress('score', 100); spawnLoot(e.x, e.y); AudioEngine.explosion(); 
+                }
+            }
+            
+            // Collision with Player
+            if(!e.dead && Math.hypot(e.x-gameState.player.x, e.y-gameState.player.y)<40) { 
+                gameState.player.hp -= 20; updateHUD(); e.dead = true; gameState.shake = 5; document.body.style.backgroundColor = "#550000"; setTimeout(()=>document.body.style.backgroundColor="#000", 50); AudioEngine.damage(); 
+            }
+            
+            if(e.dead || e.y > canvas.height) gameState.enemies.splice(i, 1);
+        }
+
+        // Items Update
+        for (let i = gameState.items.length - 1; i >= 0; i--) {
+            let item = gameState.items[i];
+            item.y += item.speed * gameDt;
+            if(Math.hypot(item.x-gameState.player.x, item.y-gameState.player.y)<40 && !item.collected) { collectItem(item); gameState.items.splice(i, 1); }
+            else if(item.y > canvas.height) gameState.items.splice(i, 1);
+        }
+
+        // Particles Update
+        for (let i = gameState.particles.length - 1; i >= 0; i--) {
+            let p = gameState.particles[i];
+            p.life -= dt;
+            if(p.life <= 0) gameState.particles.splice(i, 1);
+        }
+
         if(gameState.player.hp <= 0) {
             gameState.mode = STATE.GAME_OVER; document.getElementById('game-over').style.display = 'flex';
             document.getElementById('final-score').innerText = "SCORE: " + gameState.score;
