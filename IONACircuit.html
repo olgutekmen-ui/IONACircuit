@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>IONA's Circuit Dive - Beta v1.4 (HUD & Physics)</title>
+    <title>IONA's Circuit Dive - Beta v2.3 (Stable)</title>
     <style>
         body { 
             margin: 0; background: #000; overflow: hidden; 
@@ -14,34 +14,30 @@
             pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
         }
 
-        /* Top HUD */
         .hud-top {
             padding: 10px 20px; display: flex; justify-content: space-between;
             background: linear-gradient(to bottom, rgba(0,0,0,0.95), transparent);
             color: #00ffff; text-shadow: 0 0 5px #00ffff; font-size: 16px;
+            pointer-events: auto;
         }
         .resource-box { display: flex; align-items: center; gap: 10px; }
         .icon-sm { width: 20px; height: 20px; border-radius: 50%; }
 
-        /* Health Bar Container */
         #hp-wrapper { position: relative; width: 150px; height: 15px; margin-top: 5px; }
-        #hp-container {
-            width: 100%; height: 100%; border: 1px solid #00ffff; background: #000;
-        }
+        #hp-container { width: 100%; height: 100%; border: 1px solid #00ffff; background: #000; }
         #hp-bar { width: 100%; height: 100%; background: #00ffff; transition: width 0.2s; }
         #hp-text {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 10px; color: #fff; font-weight: bold; text-shadow: 0 0 2px #000;
+            font-size: 10px; color: #fff; font-weight: bold; text-shadow: 0 0 2px #000; z-index: 2;
         }
 
-        /* Start Screen */
         #start-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #050510; display: flex; flex-direction: column; align-items: center; justify-content: center;
             pointer-events: auto; z-index: 10;
         }
-        #game-logo { width: 150px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 0 20px #00ffff; }
+        #game-logo { width: 150px; margin-bottom: 10px; border-radius: 10px; box-shadow: 0 0 20px #00ffff; }
         
         .btn-main {
             padding: 15px 40px; font-size: 20px; color: #050510; background: #00ffff;
@@ -54,24 +50,48 @@
             border: 1px solid #00ffff; cursor: pointer; font-family: inherit; margin: 5px; transition: all 0.2s;
         }
         .btn-sec:hover { background: rgba(0, 255, 255, 0.1); }
-        
+        .btn-sm { padding: 5px 10px; font-size: 12px; cursor: pointer; background: #333; color: white; border: 1px solid #555; }
         .btn-error { border-color: red !important; color: red !important; background: rgba(255,0,0,0.1) !important; }
         .btn-success { border-color: #00ff00 !important; color: #00ff00 !important; background: rgba(0,255,0,0.1) !important; }
 
-        /* SHOP MODAL */
+        #pause-screen {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 50; pointer-events: auto;
+            flex-direction: column; align-items: center; justify-content: center; color: white;
+        }
+
+        .mission-board {
+            background: rgba(0, 20, 40, 0.8); border: 1px solid #0055ff;
+            padding: 15px; margin-bottom: 20px; width: 300px; border-radius: 5px;
+        }
+        .mission-item {
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #003366; padding: 8px 0; font-size: 14px; color: #ccc;
+        }
+        .mission-progress { color: #00ffff; font-size: 12px; }
+        .mission-reward { color: #ffd700; font-size: 12px; }
+
         #shop-screen {
             display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.95); z-index: 15; pointer-events: auto;
             flex-direction: column; align-items: center; justify-content: center; color: white;
         }
         .shop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-        .shop-item {
-            border: 1px solid #333; padding: 20px; background: #111; text-align: center; width: 180px;
-        }
+        .shop-item { border: 1px solid #333; padding: 20px; background: #111; text-align: center; width: 180px; }
         .shop-cost { color: #ffd700; margin: 10px 0; font-size: 14px; }
         .shop-cost.energy { color: #00ffff; }
 
-        /* Boss HUD */
+        #iap-overlay {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 100;
+            flex-direction: column; align-items: center; justify-content: center; color: white;
+        }
+        .spinner {
+            border: 4px solid #333; border-top: 4px solid #00ffff; border-radius: 50%;
+            width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
         #boss-hud { position: absolute; top: 80px; width: 100%; text-align: center; display: none; }
         #boss-name { color: #ff0055; font-size: 20px; font-weight: bold; text-shadow: 0 0 10px red; }
         #boss-hp-wrapper { position: relative; width: 250px; height: 15px; margin: 5px auto; }
@@ -80,10 +100,9 @@
         #boss-hp-text {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 10px; color: #fff; font-weight: bold; text-shadow: 0 0 2px #000;
+            font-size: 10px; color: #fff; font-weight: bold; text-shadow: 0 0 2px #000; z-index: 2;
         }
 
-        /* Game Over */
         #game-over {
             display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); color: white;
@@ -96,6 +115,9 @@
             color: white; font-size: 32px; text-shadow: 0 0 20px white;
             opacity: 0; transition: opacity 0.5s;
         }
+        .blink { animation: blinker 0.5s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+
         #loading { color: #fff; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
     </style>
 </head>
@@ -103,18 +125,23 @@
 
 <div id="loading">INITIALIZING NEURAL LINK...</div>
 
+<div id="iap-overlay">
+    <div class="spinner"></div>
+    <div>CONTACTING SERVER...</div>
+</div>
+
+<div id="pause-screen">
+    <h1 style="color: #00ffff;">SYSTEM PAUSED</h1>
+    <button class="btn-main" onclick="togglePause()">RESUME</button>
+    <button class="btn-sec" onclick="quitGame()">ABORT DIVE</button>
+</div>
+
 <div id="shop-screen">
     <h1 style="color:#fff; text-shadow: 0 0 10px #00ffff;">NEURAL MARKET</h1>
-    
     <div style="display: flex; gap: 30px; margin-bottom: 20px;">
-        <div class="resource-box">
-            <img src="./assets/aurum.png" class="icon-sm"> <span id="shop-aurum" style="color:#ffd700">0</span>
-        </div>
-        <div class="resource-box">
-            <img src="./assets/energy.png" class="icon-sm"> <span id="shop-energy" style="color:#00ffff">0</span>
-        </div>
+        <div class="resource-box"><img src="./assets/aurum.png" class="icon-sm"> <span id="shop-aurum" style="color:#ffd700">0</span></div>
+        <div class="resource-box"><img src="./assets/energy.png" class="icon-sm"> <span id="shop-energy" style="color:#00ffff">0</span></div>
     </div>
-
     <div class="shop-grid">
         <div class="shop-item">
             <div style="color:#00ffff; font-weight:bold;">HULL UPGRADE</div>
@@ -131,10 +158,11 @@
             <div id="lvl-fr" style="font-size:10px; color:#666;">LVL: 0</div>
         </div>
         <div class="shop-item">
-            <div style="color:#ffd700; font-weight:bold;">AURUM PACK</div>
-            <div style="font-size:12px; color:#888;">Microtransaction Sim</div>
-            <div class="shop-cost">COST: $0.99</div>
-            <button class="btn-sec" onclick="buyIAP(50, this)">BUY 50 AURUM</button>
+            <div style="color:#00ff00; font-weight:bold;">VOLLEY MODULE</div>
+            <div style="font-size:12px; color:#888;">Multi-Shot Spread</div>
+            <div class="shop-cost energy">COST: <span id="cost-sp">300</span> ENERGY</div>
+            <button id="btn-sp" class="btn-sec" onclick="buyUpgrade('spread', this)">UPGRADE</button>
+            <div id="lvl-sp" style="font-size:10px; color:#666;">LVL: 0</div>
         </div>
         <div class="shop-item">
             <div style="color:#fff; font-weight:bold;">ENERGY CONVERT</div>
@@ -143,23 +171,30 @@
             <button class="btn-sec" onclick="convertCurrency(this)">GET 20 ENERGY</button>
         </div>
     </div>
-
+    <div style="border-top: 1px solid #333; padding-top: 10px; width: 100%; text-align: center;">
+        <h3 style="color:#ffd700">AURUM SUPPLY</h3>
+        <div style="display:flex; gap:10px; justify-content:center;">
+            <button class="btn-sec" onclick="buyIAP(10, this)">10 AURUM ($0.99)</button>
+            <button class="btn-sec" onclick="buyIAP(50, this)">50 AURUM ($3.99)</button>
+            <button class="btn-sec" onclick="buyIAP(100, this)">100 AURUM ($6.99)</button>
+        </div>
+    </div>
+    <br>
     <button class="btn-main" onclick="closeShop()">RETURN TO MENU</button>
 </div>
 
 <div id="start-screen">
     <img id="game-logo" src="" alt="SYNC STUDIOS"> 
-    <h1 style="color:#fff; text-shadow: 0 0 10px #00ffff;">IONA'S CIRCUIT DIVE</h1>
+    <h1 style="color:#fff; text-shadow: 0 0 10px #00ffff; margin-bottom: 5px;">IONA'S CIRCUIT DIVE</h1>
     
-    <div style="display: flex; gap: 40px; color: #fff; margin-bottom: 20px; font-size: 20px;">
-        <div class="resource-box">
-            <img src="./assets/aurum.png" class="icon-sm"> 
-            <span style="color:#ffd700" id="menu-aurum">0</span>
-        </div>
-        <div class="resource-box">
-            <img src="./assets/energy.png" class="icon-sm"> 
-            <span style="color:#00ffff" id="menu-energy">0</span>
-        </div>
+    <div style="display: flex; gap: 40px; color: #fff; margin-bottom: 10px; font-size: 20px;">
+        <div class="resource-box"><img src="./assets/aurum.png" class="icon-sm"> <span style="color:#ffd700" id="menu-aurum">0</span></div>
+        <div class="resource-box"><img src="./assets/energy.png" class="icon-sm"> <span style="color:#00ffff" id="menu-energy">0</span></div>
+    </div>
+
+    <div class="mission-board" id="mission-board">
+        <div style="color:#fff; text-align:center; font-weight:bold; margin-bottom:5px;">ACTIVE BOUNTIES</div>
+        <div id="mission-list"></div>
     </div>
 
     <button class="btn-main" onclick="startGame()">INITIATE DIVE</button>
@@ -175,22 +210,16 @@
                 <div id="hp-text">100 / 100</div>
             </div>
         </div>
-        
         <div style="display:flex; gap:15px;">
-            <div class="resource-box">
-                <img src="./assets/aurum.png" class="icon-sm"> <span id="hud-aurum">0</span>
-            </div>
-            <div class="resource-box">
-                <img src="./assets/energy.png" class="icon-sm"> <span id="hud-energy">0</span>
-            </div>
+            <div class="resource-box"><img src="./assets/aurum.png" class="icon-sm"> <span id="hud-aurum">0</span></div>
+            <div class="resource-box"><img src="./assets/energy.png" class="icon-sm"> <span id="hud-energy">0</span></div>
         </div>
-
         <div style="text-align:right">
-            <div id="score">SCORE: 0</div>
-            <div id="wave-info">WAVE 1</div>
+            <button class="btn-sm" onclick="togglePause()">PAUSE [ESC]</button>
+            <button class="btn-sm" onclick="toggleMute()" id="mute-btn">AUDIO: ON</button>
+            <div id="score" style="margin-top:5px;">SCORE: 0</div>
         </div>
     </div>
-
     <div id="boss-hud">
         <div id="boss-name">TARGET</div>
         <div id="boss-hp-wrapper">
@@ -198,7 +227,6 @@
             <div id="boss-hp-text">0 / 0</div>
         </div>
     </div>
-
     <div id="message"></div>
 </div>
 
@@ -221,502 +249,280 @@
     canvas.width = window.innerWidth > 600 ? 480 : window.innerWidth;
     canvas.height = window.innerHeight;
 
-    // --- SAVE & ECONOMY SYSTEM ---
-    let savedData = JSON.parse(localStorage.getItem('iona_circuit_save_v1')) || { 
-        aurum: 0, 
-        energy: 0,
-        upgrades: { hp: 0, fireRate: 0 } 
+    // --- AUDIO SYSTEM (STABLE SYNTH) ---
+    const AudioEngine = {
+        ctx: null, enabled: true,
+        init: function() { if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if(this.ctx.state === 'suspended') this.ctx.resume(); },
+        playTone: function(freq, type, duration, vol) {
+            if(!this.enabled || !this.ctx) return;
+            const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+            gain.gain.setValueAtTime(vol, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(); osc.stop(this.ctx.currentTime + duration);
+        },
+        playNoise: function(duration, vol) {
+            if(!this.enabled || !this.ctx) return;
+            const bufferSize = this.ctx.sampleRate * duration;
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for(let i=0; i<bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = buffer;
+            const gain = this.ctx.createGain();
+            gain.gain.setValueAtTime(vol, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+            noise.connect(gain); gain.connect(this.ctx.destination);
+            noise.start();
+        },
+        shoot: function() { this.playTone(800, 'square', 0.1, 0.05); },
+        explosion: function() { this.playNoise(0.4, 0.2); },
+        collect: function() { this.playTone(1200, 'sine', 0.2, 0.1); this.playTone(1800, 'sine', 0.2, 0.1); },
+        damage: function() { this.playTone(100, 'sawtooth', 0.3, 0.2); },
+        musicBeat: function() {
+            if(!this.enabled || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+            osc.frequency.setValueAtTime(60, now);
+            gain.gain.setValueAtTime(0.05, now); gain.gain.linearRampToValueAtTime(0.1, now + 0.1); gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+            osc.connect(gain); gain.connect(this.ctx.destination);
+            osc.start(); osc.stop(now + 0.2);
+        }
     };
-    if(!savedData.upgrades) savedData.upgrades = { hp: 0, fireRate: 0 };
+
+    function toggleMute() {
+        AudioEngine.enabled = !AudioEngine.enabled;
+        document.getElementById('mute-btn').innerText = "AUDIO: " + (AudioEngine.enabled ? "ON" : "OFF");
+    }
+
+    // --- GAME DATA ---
+    const CURRENT_VERSION = 2.1;
+    let savedData = JSON.parse(localStorage.getItem('iona_circuit_save_v1')) || { aurum: 0, energy: 0, upgrades: { hp: 0, fireRate: 0, spread: 0 }, missions: [], version: 0 };
+    if(!savedData.version || savedData.version < CURRENT_VERSION) { savedData.missions = []; savedData.version = CURRENT_VERSION; }
+    if(!savedData.upgrades) savedData.upgrades = { hp: 0, fireRate: 0, spread: 0 };
     let bank = savedData;
 
-    function saveGame() {
-        localStorage.setItem('iona_circuit_save_v1', JSON.stringify(bank));
-        updateMenuUI();
+    // --- MISSION SYSTEM ---
+    const MISSION_TYPES = [
+        { id: 'kill', text: "Destroy Enemies", goal: 50, reward: 2 },
+        { id: 'score', text: "Earn Score", goal: 2000, reward: 2 },
+        { id: 'boss', text: "Defeat Bosses", goal: 1, reward: 5 },
+        { id: 'collect', text: "Harvest Energy", goal: 100, reward: 3 }
+    ];
+
+    function checkMissions() {
+        const allDone = bank.missions.length > 0 && bank.missions.every(m => m.completed);
+        if(bank.missions.length === 0 || allDone) {
+            bank.missions = [];
+            const available = [...MISSION_TYPES].sort(() => 0.5 - Math.random());
+            for(let i=0; i<3; i++) bank.missions.push({ ...available[i], current: 0, completed: false, uid: Date.now()+i });
+            saveGame();
+        }
     }
+
+    function updateMissionProgress(type, amount) {
+        let updated = false;
+        bank.missions.forEach(m => {
+            if(!m.completed && m.id === type) {
+                m.current += amount;
+                if(m.current >= m.goal) { m.current = m.goal; m.completed = true; bank.aurum += m.reward; showMessage("BOUNTY COMPLETE!", "#00ff00"); AudioEngine.collect(); updated = true; }
+            }
+        });
+        if(updated) saveGame();
+    }
+
+    function renderMissions() {
+        const list = document.getElementById('mission-list'); list.innerHTML = "";
+        bank.missions.forEach(m => {
+            const div = document.createElement('div'); div.className = 'mission-item';
+            const status = m.completed ? "<span style='color:#00ff00'>DONE</span>" : `<span class='mission-reward'>+${m.reward} AURUM</span>`;
+            div.innerHTML = `<div>${m.text}</div><div style="text-align:right"><div class="mission-progress">${m.current} / ${m.goal}</div>${status}</div>`;
+            if(m.completed) div.style.opacity = 0.5;
+            list.appendChild(div);
+        });
+    }
+
+    function saveGame() { try { localStorage.setItem('iona_circuit_save_v1', JSON.stringify(bank)); updateMenuUI(); } catch(e){ console.warn("Save failed"); } }
 
     function updateMenuUI() {
-        document.getElementById('menu-aurum').innerText = bank.aurum;
-        document.getElementById('menu-energy').innerText = bank.energy;
-        document.getElementById('shop-aurum').innerText = bank.aurum;
-        document.getElementById('shop-energy').innerText = bank.energy;
-        
-        const hpCost = 100 + (bank.upgrades.hp * 50);
-        const frCost = 150 + (bank.upgrades.fireRate * 75);
-        document.getElementById('cost-hp').innerText = hpCost;
-        document.getElementById('cost-fr').innerText = frCost;
-        document.getElementById('lvl-hp').innerText = "LVL: " + bank.upgrades.hp;
-        document.getElementById('lvl-fr').innerText = "LVL: " + bank.upgrades.fireRate;
+        document.getElementById('menu-aurum').innerText = bank.aurum; document.getElementById('menu-energy').innerText = bank.energy;
+        document.getElementById('shop-aurum').innerText = bank.aurum; document.getElementById('shop-energy').innerText = bank.energy;
+        renderMissions();
+        document.getElementById('cost-hp').innerText = 100 + (bank.upgrades.hp * 50);
+        document.getElementById('cost-fr').innerText = 150 + (bank.upgrades.fireRate * 75);
+        document.getElementById('cost-sp').innerText = bank.upgrades.spread >= 2 ? "MAX" : 300 + (bank.upgrades.spread * 300);
+        document.getElementById('lvl-hp').innerText = "LVL: " + bank.upgrades.hp; document.getElementById('lvl-fr').innerText = "LVL: " + bank.upgrades.fireRate; document.getElementById('lvl-sp').innerText = "LVL: " + bank.upgrades.spread + "/2";
     }
 
-    function openShop() { document.getElementById('shop-screen').style.display = 'flex'; updateMenuUI(); }
+    let isPaused = false;
+    function togglePause() { if(gameState.mode === STATE.MENU || gameState.mode === STATE.GAME_OVER) return; isPaused = !isPaused; document.getElementById('pause-screen').style.display = isPaused ? 'flex' : 'none'; }
+    function quitGame() {
+        isPaused = false; document.getElementById('pause-screen').style.display = 'none'; document.getElementById('ui-layer').style.display = 'none'; document.getElementById('start-screen').style.display = 'flex';
+        bank.aurum += gameState.runAurum; bank.energy += gameState.runEnergy; saveGame(); gameState.mode = STATE.MENU;
+    }
+    window.addEventListener('keydown', e => { if(e.key === "Escape") togglePause(); });
+
+    // SHOP & IAP
+    function openShop() { document.getElementById('shop-screen').style.display = 'flex'; updateMenuUI(); AudioEngine.init(); }
     function closeShop() { document.getElementById('shop-screen').style.display = 'none'; }
-
-    function flashButton(btn, success) {
-        btn.classList.add(success ? 'btn-success' : 'btn-error');
-        setTimeout(() => { btn.classList.remove('btn-success', 'btn-error'); }, 500);
-    }
-
+    function flashButton(btn, success) { btn.classList.add(success ? 'btn-success' : 'btn-error'); setTimeout(() => { btn.classList.remove('btn-success', 'btn-error'); }, 500); }
     function buyUpgrade(type, btn) {
-        if(type === 'hp') {
-            const cost = 100 + (bank.upgrades.hp * 50);
-            if(bank.energy >= cost) {
-                bank.energy -= cost;
-                bank.upgrades.hp++;
-                saveGame();
-                flashButton(btn, true);
-            } else flashButton(btn, false);
-        }
-        if(type === 'fireRate') {
-            const cost = 150 + (bank.upgrades.fireRate * 75);
-            if(bank.energy >= cost) {
-                bank.energy -= cost;
-                bank.upgrades.fireRate++;
-                saveGame();
-                flashButton(btn, true);
-            } else flashButton(btn, false);
-        }
+        if(type === 'hp') { let cost = 100 + (bank.upgrades.hp * 50); if(bank.energy >= cost) { bank.energy -= cost; bank.upgrades.hp++; saveGame(); flashButton(btn, true); AudioEngine.collect(); } else flashButton(btn, false); }
+        else if(type === 'fireRate') { let cost = 150 + (bank.upgrades.fireRate * 75); if(bank.energy >= cost) { bank.energy -= cost; bank.upgrades.fireRate++; saveGame(); flashButton(btn, true); AudioEngine.collect(); } else flashButton(btn, false); }
+        else if(type === 'spread') { if(bank.upgrades.spread >= 2) { flashButton(btn, false); return; } let cost = 300 + (bank.upgrades.spread * 300); if(bank.energy >= cost) { bank.energy -= cost; bank.upgrades.spread++; saveGame(); flashButton(btn, true); AudioEngine.collect(); } else flashButton(btn, false); }
     }
+    function convertCurrency(btn) { if(bank.aurum >= 1) { bank.aurum -= 1; bank.energy += 20; saveGame(); flashButton(btn, true); AudioEngine.collect(); } else flashButton(btn, false); }
+    function buyIAP(amount, btn) { document.getElementById('iap-overlay').style.display = 'flex'; setTimeout(() => { document.getElementById('iap-overlay').style.display = 'none'; bank.aurum += amount; saveGame(); alert("Payment Successful!"); AudioEngine.collect(); }, 1500); }
 
-    function buyIAP(amount, btn) {
-        if(confirm("Confirm purchase of " + amount + " Aurum for $0.99?")) {
-            bank.aurum += amount;
-            saveGame();
-            flashButton(btn, true);
-        }
-    }
-
-    function convertCurrency(btn) {
-        if(bank.aurum >= 1) {
-            bank.aurum -= 1;
-            bank.energy += 20; 
-            saveGame();
-            flashButton(btn, true);
-        } else flashButton(btn, false);
-    }
-
-    // --- ASSETS ---
     const assets = {};
     const imageSources = {
-        player: './assets/GuardianIONA.png',
-        bg: './assets/bg.png', 
-        logo: './assets/LogoSyncStudios.png',
-        enemy1: './assets/enemy1.png',
-        enemy2: './assets/enemy2.png',
-        enemy3: './assets/enemy3.png',
-        enemy4: './assets/enemy4.png',
-        boss1: './assets/PrimordialOfWar.png',
-        boss2: './assets/PrimordialOfDeceit.png',
-        boss3: './assets/PrimordialOfPlague.png',
-        boss4: './assets/PrimordialOfGreed.png',
-        healing: './assets/GlyphBari.png',
-        timeSlow: './assets/GlyphSlow.png', 
-        aurum: './assets/aurum.png',
-        energy: './assets/energy.png'
+        player: './assets/GuardianIONA.png', bg: './assets/bg.png', logo: './assets/LogoSyncStudios.png',
+        enemy1: './assets/enemy1.png', enemy2: './assets/enemy2.png', enemy3: './assets/enemy3.png', enemy4: './assets/enemy4.png',
+        boss1: './assets/PrimordialOfWar.png', boss2: './assets/PrimordialOfDeceit.png', boss3: './assets/PrimordialOfPlague.png', boss4: './assets/PrimordialOfGreed.png',
+        healing: './assets/GlyphBari.png', timeSlow: './assets/GlyphSlow.png', aurum: './assets/aurum.png', energy: './assets/energy.png'
     };
-
-    let assetsLoaded = 0;
-    const totalAssets = Object.keys(imageSources).length;
-
+    let assetsLoaded = 0; const totalAssets = Object.keys(imageSources).length;
     function loadAssets(callback) {
-        for (let key in imageSources) {
-            const img = new Image();
-            img.src = imageSources[key];
-            img.onload = () => { assetsLoaded++; checkLoad(); };
-            img.onerror = () => { assetsLoaded++; checkLoad(); };
-            assets[key] = img;
-        }
-        function checkLoad() {
-            if (assetsLoaded === totalAssets) {
-                document.getElementById('loading').style.display = 'none';
-                if(assets.logo) document.getElementById('game-logo').src = assets.logo.src;
-                updateMenuUI();
-                callback();
-            }
-        }
+        for (let key in imageSources) { const img = new Image(); img.src = imageSources[key]; img.onload = () => { assetsLoaded++; checkLoad(); }; img.onerror = () => { assetsLoaded++; checkLoad(); }; assets[key] = img; }
+        function checkLoad() { if (assetsLoaded === totalAssets) { document.getElementById('loading').style.display = 'none'; if(assets.logo) document.getElementById('game-logo').src = assets.logo.src; checkMissions(); updateMenuUI(); callback(); } }
     }
     function isDrawable(img) { return img && img.complete && img.naturalHeight !== 0; }
 
-    // --- GAME LOGIC ---
-    let lastTime = 0;
-    const STATE = { MENU: 0, WAVE: 1, BOSS_WARNING: 2, BOSS_FIGHT: 3, GAME_OVER: 4 };
-    
-    const gameState = {
-        mode: STATE.MENU,
-        level: 1,
-        player: { x: canvas.width/2, y: canvas.height-120, hp: 100, maxHp: 100 },
-        score: 0,
-        runAurum: 0,
-        runEnergy: 0,
-        bgOffsetY: 0,
-        gameSpeed: 300, 
-        timeScale: 1.0, 
-        slowTimer: 0,
-        playerProjectiles: [],
-        enemyProjectiles: [],
-        enemies: [],
-        items: [],
-        particles: [],
-        boss: null,
-        waveTimer: 0,
-        waveDuration: 20, 
-        input: { isShooting: false, lastShot: 0 }
-    };
+    let lastTime = 0; const STATE = { MENU: 0, WAVE: 1, BOSS_WARNING: 2, BOSS_FIGHT: 3, GAME_OVER: 4 };
+    const gameState = { mode: STATE.MENU, level: 1, player: { x: 0, y: 0, hp: 100, maxHp: 100 }, score: 0, runAurum: 0, runEnergy: 0, bgOffsetY: 0, starsY: 0, gameSpeed: 300, timeScale: 1.0, slowTimer: 0, shake: 0, playerProjectiles: [], enemyProjectiles: [], enemies: [], items: [], particles: [], stars: [], boss: null, waveTimer: 0, waveDuration: 40, musicTimer: 0, input: { isShooting: false, lastShot: 0 } };
+    for(let i=0; i<50; i++) gameState.stars.push({ x:Math.random()*canvas.width, y:Math.random()*canvas.height, s:Math.random()*2+1 });
 
-    // --- INPUT ---
     let inputDrag = { active: false, lastX: 0, lastY: 0, id: null };
-    
-    const handleStart = (x, y, id=0) => { 
-        if(gameState.mode === STATE.MENU) return;
-        if(inputDrag.active) return;
-        inputDrag.active = true; 
-        inputDrag.lastX = x; 
-        inputDrag.lastY = y; 
-        inputDrag.id = id;
-        gameState.input.isShooting = true; 
-    };
-    
-    const handleMove = (x, y, id=0) => {
-        if(inputDrag.active && inputDrag.id === id) {
-            gameState.player.x += (x - inputDrag.lastX);
-            gameState.player.y += (y - inputDrag.lastY);
-            inputDrag.lastX = x; inputDrag.lastY = y;
-        }
-    };
-    
-    const handleEnd = (id=0) => { 
-        if(inputDrag.id === id) {
-            inputDrag.active = false; 
-            gameState.input.isShooting = false; 
-        }
-    };
-
-    window.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY));
-    window.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
-    window.addEventListener('mouseup', () => handleEnd(0));
-    canvas.addEventListener('touchstart', e => { 
-        e.preventDefault(); 
-        for(let i=0; i<e.changedTouches.length; i++) {
-            let t = e.changedTouches[i];
-            handleStart(t.clientX, t.clientY, t.identifier);
-        }
-    }, {passive: false});
-    canvas.addEventListener('touchmove', e => { 
-        e.preventDefault(); 
-        for(let i=0; i<e.changedTouches.length; i++) {
-            let t = e.changedTouches[i];
-            handleMove(t.clientX, t.clientY, t.identifier);
-        }
-    }, {passive: false});
-    canvas.addEventListener('touchend', e => {
-        for(let i=0; i<e.changedTouches.length; i++) handleEnd(e.changedTouches[i].identifier);
-    });
+    const handleStart = (x, y, id=0) => { if(gameState.mode === STATE.MENU || isPaused) return; if(inputDrag.active) return; inputDrag.active = true; inputDrag.lastX = x; inputDrag.lastY = y; inputDrag.id = id; gameState.input.isShooting = true; };
+    const handleMove = (x, y, id=0) => { if(inputDrag.active && inputDrag.id === id) { gameState.player.x += (x - inputDrag.lastX); gameState.player.y += (y - inputDrag.lastY); inputDrag.lastX = x; inputDrag.lastY = y; } };
+    const handleEnd = (id=0) => { if(inputDrag.id === id) { inputDrag.active = false; gameState.input.isShooting = false; } };
+    window.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY)); window.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY)); window.addEventListener('mouseup', () => handleEnd(0));
+    canvas.addEventListener('touchstart', e => { e.preventDefault(); for(let i=0; i<e.changedTouches.length; i++) { let t = e.changedTouches[i]; handleStart(t.clientX, t.clientY, t.identifier); }}, {passive: false});
+    canvas.addEventListener('touchmove', e => { e.preventDefault(); for(let i=0; i<e.changedTouches.length; i++) { let t = e.changedTouches[i]; handleMove(t.clientX, t.clientY, t.identifier); }}, {passive: false});
+    canvas.addEventListener('touchend', e => { for(let i=0; i<e.changedTouches.length; i++) handleEnd(e.changedTouches[i].identifier); });
 
     function startGame() {
-        document.getElementById('start-screen').style.display = 'none';
-        document.getElementById('shop-screen').style.display = 'none';
-        document.getElementById('ui-layer').style.display = 'block';
-        
-        const bonusHP = bank.upgrades.hp * 20;
-        const fireRateReduction = Math.min(50, bank.upgrades.fireRate * 5);
-        
-        gameState.mode = STATE.WAVE;
-        gameState.level = 1;
-        gameState.score = 0;
-        gameState.runAurum = 0;
-        gameState.runEnergy = 0;
-        gameState.player.maxHp = 100 + bonusHP;
-        gameState.player.hp = gameState.player.maxHp;
-        gameState.fireRate = 100 - fireRateReduction;
+        AudioEngine.init();
+        document.getElementById('start-screen').style.display = 'none'; document.getElementById('shop-screen').style.display = 'none'; document.getElementById('ui-layer').style.display = 'block';
+        const bonusHP = bank.upgrades.hp * 20; const fireRateReduction = Math.min(50, bank.upgrades.fireRate * 5);
+        gameState.mode = STATE.WAVE; gameState.level = 1; gameState.score = 0; gameState.runAurum = 0; gameState.runEnergy = 0;
+        gameState.player.x = canvas.width/2; gameState.player.y = canvas.height-120;
+        gameState.player.maxHp = 100 + bonusHP; gameState.player.hp = gameState.player.maxHp;
+        gameState.fireRate = 100 - fireRateReduction; gameState.spread = bank.upgrades.spread;
         gameState.enemies = []; gameState.items = []; gameState.playerProjectiles = []; gameState.enemyProjectiles = [];
-        gameState.waveTimer = 0;
-        
-        lastTime = performance.now();
-        updateHUD();
+        gameState.waveTimer = 0; gameState.musicTimer = 0;
+        lastTime = performance.now(); updateHUD();
     }
 
     function spawnLoot(x, y) {
-        const rand = Math.random();
-        let type = ''; let img = null;
-        if (rand < 0.08) { type = 'aurum'; img = assets.aurum; }
-        else if (rand < 0.23) { type = 'energy'; img = assets.energy; }
-        else if (rand < 0.28) { type = 'timeSlow'; img = assets.timeSlow; }
-        else if (rand < 0.38) { type = 'healing'; img = assets.healing; }
-
+        const rand = Math.random(); let type = ''; let img = null;
+        if (rand < 0.08) { type = 'aurum'; img = assets.aurum; } else if (rand < 0.23) { type = 'energy'; img = assets.energy; } else if (rand < 0.28) { type = 'timeSlow'; img = assets.timeSlow; } else if (rand < 0.38) { type = 'healing'; img = assets.healing; }
         if (type) gameState.items.push({ x: x, y: y, type: type, img: img, w: 40, h: 40, speed: 150 });
     }
 
-    function collectItem(item) {
-        if(item.type === 'healing') {
-            gameState.player.hp = Math.min(gameState.player.hp + 25, gameState.player.maxHp);
-            showMessage("REPAIR +25%", "#00ff00");
-        } 
-        else if (item.type === 'aurum') {
-            gameState.runAurum += 1; 
-            showMessage("+1 AURUM", "#ffd700");
-        }
-        else if (item.type === 'energy') {
-            gameState.runEnergy += 5;
-            showMessage("+5 ENERGY", "#00ffff");
-        }
-        else if (item.type === 'timeSlow') {
-            gameState.slowTimer = 5.0; 
-            gameState.timeScale = 0.5;
-            showMessage("CHRONO-BREACH ACTIVATED", "#00ffff");
-        }
-        updateHUD();
-        item.collected = true;
-    }
-
-    function updateHUD() {
-        document.getElementById('hp-bar').style.width = (gameState.player.hp / gameState.player.maxHp * 100) + "%";
-        // NEW: Update Text
-        document.getElementById('hp-text').innerText = Math.ceil(gameState.player.hp) + " / " + gameState.player.maxHp;
-        
-        document.getElementById('hud-aurum').innerText = gameState.runAurum;
-        document.getElementById('hud-energy').innerText = gameState.runEnergy;
-        document.getElementById('score').innerText = "SCORE: " + gameState.score;
-    }
-
-    function showMessage(text, color) {
-        const msg = document.getElementById('message');
-        msg.innerText = text; msg.style.color = color; msg.style.opacity = 1;
-        setTimeout(() => msg.style.opacity = 0, 1500);
-    }
-
-    function startBossSequence() {
-        gameState.mode = STATE.BOSS_WARNING;
-        gameState.enemies = []; gameState.enemyProjectiles = [];
-        showMessage("WARNING: PRIMORDIAL DETECTED", "red");
-        setTimeout(spawnBoss, 2000);
-    }
-
-    function spawnBoss() {
-        gameState.mode = STATE.BOSS_FIGHT;
-        const index = Math.min(gameState.level, 4);
-        const names = ["", "PRIMORDIAL OF WAR", "PRIMORDIAL OF DECEIT", "PRIMORDIAL OF PLAGUE", "PRIMORDIAL OF GREED"];
-        
-        document.getElementById('boss-hud').style.display = 'block';
-        document.getElementById('boss-name').innerText = names[index];
-        document.getElementById('boss-hp-bar').style.width = '100%';
-        
-        const bossMaxHp = 800 * gameState.level;
-        document.getElementById('boss-hp-text').innerText = bossMaxHp + " / " + bossMaxHp;
-
-        gameState.boss = {
-            x: canvas.width/2, y: 100, w: 120, h: 120,
-            hp: bossMaxHp, maxHp: bossMaxHp,
-            img: assets['boss'+index], dir: 1, attackTimer: 0, pattern: 0
-        };
-    }
-
     function updateGame(dt) {
-        if(gameState.mode === STATE.MENU || gameState.mode === STATE.GAME_OVER) return;
-
-        if(gameState.slowTimer > 0) {
-            gameState.slowTimer -= dt;
-            if(gameState.slowTimer <= 0) {
-                gameState.timeScale = 1.0;
-                showMessage("TIME SYNC RESTORED", "#fff");
-            }
+        if(gameState.mode === STATE.MENU || gameState.mode === STATE.GAME_OVER || isPaused) return;
+        
+        // --- SYNTH MUSIC ENGINE (Game Loop Integrated) ---
+        gameState.musicTimer += dt;
+        if(gameState.musicTimer > 0.25) { // 240 BPM
+            if(gameState.mode === STATE.WAVE || gameState.mode === STATE.BOSS_FIGHT) AudioEngine.musicBeat();
+            gameState.musicTimer = 0;
         }
+
+        if(gameState.shake > 0) gameState.shake = Math.max(0, gameState.shake - dt * 20);
+        if(gameState.slowTimer > 0) { gameState.slowTimer -= dt; if(gameState.slowTimer <= 0) { gameState.timeScale = 1.0; showMessage("TIME SYNC RESTORED", "#fff"); }}
         const gameDt = dt * gameState.timeScale; 
-
-        // CLAMP PLAYER Y TO PREVENT FLYING BEHIND BOSS
-        gameState.player.x = Math.max(30, Math.min(canvas.width-30, gameState.player.x));
-        gameState.player.y = Math.max(180, Math.min(canvas.height-50, gameState.player.y));
-
-        // BG Scroll
+        gameState.player.x = Math.max(30, Math.min(canvas.width-30, gameState.player.x)); gameState.player.y = Math.max(180, Math.min(canvas.height-50, gameState.player.y));
         if(gameState.mode === STATE.WAVE) {
-            gameState.bgOffsetY += gameState.gameSpeed * gameDt;
-            if(gameState.bgOffsetY >= canvas.height) gameState.bgOffsetY = 0;
-            gameState.waveTimer += gameDt;
-            if(gameState.waveTimer > gameState.waveDuration) {
-                startBossSequence(); 
-                gameState.waveTimer = 0;
-            }
+            gameState.bgOffsetY += gameState.gameSpeed * gameDt; if(gameState.bgOffsetY >= canvas.height) gameState.bgOffsetY = 0;
+            gameState.waveTimer += dt; if(gameState.waveTimer > gameState.waveDuration) { startBossSequence(); gameState.waveTimer = 0; }
         }
-
-        // Shooting
+        gameState.starsY += (gameState.gameSpeed * 1.5) * gameDt; if(gameState.starsY >= canvas.height) gameState.starsY = 0;
         if(gameState.input.isShooting && gameState.mode !== STATE.BOSS_WARNING) {
             const now = Date.now();
             if(now - gameState.input.lastShot > (gameState.fireRate || 100)) { 
-                gameState.playerProjectiles.push({ x: gameState.player.x, y: gameState.player.y - 40, active: true });
+                AudioEngine.shoot();
+                gameState.playerProjectiles.push({ x: gameState.player.x, y: gameState.player.y - 40, vx: 0, vy: -600, active: true });
+                if(gameState.spread >= 1) { gameState.playerProjectiles.push({ x: gameState.player.x, y: gameState.player.y - 40, vx: -50, vy: -600, active: true }); gameState.playerProjectiles.push({ x: gameState.player.x, y: gameState.player.y - 40, vx: 50, vy: -600, active: true }); }
+                if(gameState.spread >= 2) { gameState.playerProjectiles.push({ x: gameState.player.x, y: gameState.player.y - 40, vx: -100, vy: -580, active: true }); gameState.playerProjectiles.push({ x: gameState.player.x, y: gameState.player.y - 40, vx: 100, vy: -580, active: true }); }
                 gameState.input.lastShot = now;
             }
         }
-
-        if(gameState.mode === STATE.WAVE && Math.random() < (1.0 * gameDt)) { 
-            const types = ['enemy1', 'enemy2', 'enemy3', 'enemy4'];
-            gameState.enemies.push({
-                x: Math.random()*(canvas.width-50)+25, y: -50,
-                img: assets[types[Math.floor(Math.random()*types.length)]],
-                hp: 15 * gameState.level,
-                speed: 150 + (Math.random()*100),
-                w: 50, h: 50
-            });
-        }
-
-        // Projectiles
-        gameState.playerProjectiles.forEach(p => { p.y -= 600 * dt; if(p.y < 0) p.active = false; });
-        
+        // Limit enemies to max 30 to prevent crash
+        if(gameState.mode === STATE.WAVE && gameState.enemies.length < 30 && Math.random() < (2.5 * gameDt)) { const types = ['enemy1', 'enemy2', 'enemy3', 'enemy4']; gameState.enemies.push({ x: Math.random()*(canvas.width-50)+25, y: -50, img: assets[types[Math.floor(Math.random()*types.length)]], hp: 15 * gameState.level, speed: 150 + (Math.random()*100), w: 50, h: 50, flash: 0 }); }
+        gameState.playerProjectiles.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; if(p.y < 0) p.active = false; });
         gameState.enemyProjectiles.forEach(p => {
-            p.x += (p.vx || 0) * gameDt; 
-            // FIXED: Speed increased from 200 to 450 to overtake enemies
-            p.y += Math.abs(p.vy || 450) * gameDt;
-
-            if(Math.hypot(p.x - gameState.player.x, p.y - gameState.player.y) < 25) {
-                gameState.player.hp -= 10; updateHUD(); p.active = false;
-                document.body.style.backgroundColor = "#550000";
-                setTimeout(()=>document.body.style.backgroundColor="#000", 50);
-            }
-            gameState.playerProjectiles.forEach(pp => {
-                if(pp.active && p.active && Math.hypot(pp.x-p.x, pp.y-p.y) < 20) {
-                    pp.active = false; p.active = false;
-                    gameState.score += 10;
-                    gameState.particles.push({x:p.x, y:p.y, vx:0, vy:0, life:0.2, color:'#fff'});
-                }
-            });
+            p.x += (p.vx || 0) * gameDt; p.y += Math.abs(p.vy || 450) * gameDt;
+            if(Math.hypot(p.x - gameState.player.x, p.y - gameState.player.y) < 25) { gameState.player.hp -= 10; updateHUD(); p.active = false; gameState.shake = 5; document.body.style.backgroundColor = "#550000"; setTimeout(()=>document.body.style.backgroundColor="#000", 50); AudioEngine.damage(); }
+            gameState.playerProjectiles.forEach(pp => { if(pp.active && p.active && Math.hypot(pp.x-p.x, pp.y-p.y) < 20) { pp.active = false; p.active = false; gameState.score += 10; gameState.particles.push({x:p.x, y:p.y, vx:0, vy:0, life:0.2, color:'#fff'}); }});
             if(p.y > canvas.height) p.active = false;
         });
-
         if(gameState.mode === STATE.BOSS_FIGHT && gameState.boss) {
-            const b = gameState.boss;
-            b.x += (150 * b.dir) * gameDt;
-            if(b.x > canvas.width-60 || b.x < 60) b.dir *= -1;
-            
+            const b = gameState.boss; b.x += (150 * b.dir) * gameDt; if(b.x > canvas.width-60 || b.x < 60) b.dir *= -1;
             b.attackTimer += gameDt;
             if(b.attackTimer > 0.8) {
                 if(Math.random()<0.3) b.pattern = Math.floor(Math.random()*3);
-                
-                if(b.pattern===0) { // Spread
-                    for(let i=-2; i<=2; i++) gameState.enemyProjectiles.push({x:b.x, y:b.y+60, vx:i*100, vy:300, color:'#8a2be2', active:true});
-                } else if(b.pattern===1) { // Aimed
-                    const ang = Math.atan2(gameState.player.y-b.y, gameState.player.x-b.x);
-                    gameState.enemyProjectiles.push({x:b.x, y:b.y+60, vx:Math.cos(ang)*400, vy:Math.sin(ang)*400, color:'#39ff14', active:true});
-                } else { // Rain
-                    for(let k=0; k<3; k++) gameState.enemyProjectiles.push({x:Math.random()*canvas.width, y:-20, vx:0, vy:350, color:'#ff0055', active:true});
-                }
-                b.attackTimer = 0;
+                const spawnY = b.y + 20;
+                if(b.pattern===0) for(let i=-2; i<=2; i++) gameState.enemyProjectiles.push({x:b.x, y:spawnY, vx:i*100, vy:300, color:'#8a2be2', active:true});
+                else if(b.pattern===1) { const ang = Math.atan2(gameState.player.y-b.y, gameState.player.x-b.x); gameState.enemyProjectiles.push({x:b.x, y:spawnY, vx:Math.cos(ang)*400, vy:Math.sin(ang)*400, color:'#39ff14', active:true}); }
+                else for(let k=0; k<3; k++) gameState.enemyProjectiles.push({x:Math.random()*canvas.width, y:-20, vx:0, vy:350, color:'#ff0055', active:true});
+                b.attackTimer = 0; AudioEngine.shoot();
             }
-            
             gameState.playerProjectiles.forEach(p => {
                 if(p.active && Math.abs(p.x-b.x)<60 && Math.abs(p.y-b.y)<60) {
-                    b.hp -= 10; p.active = false;
-                    document.getElementById('boss-hp-bar').style.width = (b.hp/b.maxHp*100)+"%";
-                    // Update Boss Text
-                    document.getElementById('boss-hp-text').innerText = Math.ceil(b.hp) + " / " + b.maxHp;
-
+                    b.hp -= 10; p.active = false; document.getElementById('boss-hp-bar').style.width = (b.hp/b.maxHp*100)+"%"; document.getElementById('boss-hp-text').innerText = Math.ceil(b.hp) + " / " + b.maxHp;
                     if(b.hp <= 0) {
-                        gameState.score += 5000;
-                        gameState.level++;
-                        gameState.mode = STATE.WAVE;
-                        document.getElementById('boss-hud').style.display = 'none';
-                        document.getElementById('wave-info').innerText = "WAVE "+gameState.level;
-                        showMessage("TARGET NEUTRALIZED", "#fff");
-                        bank.aurum += 3; showMessage("+3 AURUM (BOSS)", "#ffd700");
-                        updateHUD();
+                        gameState.shake = 20; gameState.score += 5000; gameState.level++; gameState.mode = STATE.WAVE; gameState.waveTimer = 0;
+                        document.getElementById('boss-hud').style.display = 'none'; document.getElementById('wave-info').innerText = "WAVE "+gameState.level;
+                        showMessage("TARGET NEUTRALIZED", "#fff"); setTimeout(() => showMessage("+3 AURUM (BOSS)", "#ffd700"), 1000); 
+                        bank.aurum += 3; updateHUD(); updateMissionProgress('boss', 1); AudioEngine.explosion();
+                        gameState.boss = null; 
                     }
                 }
             });
         }
-
         gameState.enemies.forEach(e => {
-            e.y += e.speed * gameDt;
+            e.y += e.speed * gameDt; if(e.flash > 0) e.flash--;
             if(Math.random() < 0.5 * gameDt) gameState.enemyProjectiles.push({x:e.x, y:e.y+30, color:'#39ff14', active:true});
-            
-            gameState.playerProjectiles.forEach(p => {
-                if(p.active && Math.abs(p.x-e.x)<30 && Math.abs(p.y-e.y)<30) {
-                    e.dead = true; p.active = false;
-                    gameState.score += 100;
-                    spawnLoot(e.x, e.y);
-                }
-            });
-            if(!e.dead && Math.hypot(e.x-gameState.player.x, e.y-gameState.player.y)<40) {
-                gameState.player.hp -= 20; updateHUD(); e.dead = true;
-                document.body.style.backgroundColor = "#550000";
-                setTimeout(()=>document.body.style.backgroundColor="#000", 50);
-            }
+            gameState.playerProjectiles.forEach(p => { if(p.active && Math.abs(p.x-e.x)<30 && Math.abs(p.y-e.y)<30) { e.dead = true; p.active = false; gameState.score += 100; updateMissionProgress('kill', 1); updateMissionProgress('score', 100); spawnLoot(e.x, e.y); AudioEngine.explosion(); } });
+            if(!e.dead && Math.hypot(e.x-gameState.player.x, e.y-gameState.player.y)<40) { gameState.player.hp -= 20; updateHUD(); e.dead = true; gameState.shake = 5; document.body.style.backgroundColor = "#550000"; setTimeout(()=>document.body.style.backgroundColor="#000", 50); AudioEngine.damage(); }
         });
-
-        gameState.items.forEach(i => {
-            i.y += i.speed * gameDt;
-            if(Math.hypot(i.x-gameState.player.x, i.y-gameState.player.y)<40 && !i.collected) collectItem(i);
-        });
-
-        gameState.playerProjectiles = gameState.playerProjectiles.filter(p=>p.active);
-        gameState.enemyProjectiles = gameState.enemyProjectiles.filter(p=>p.active);
-        gameState.enemies = gameState.enemies.filter(e=>!e.dead && e.y < canvas.height);
-        gameState.items = gameState.items.filter(i=>!i.collected && i.y < canvas.height);
-        gameState.particles.forEach(p => p.life -= dt);
-        gameState.particles = gameState.particles.filter(p=>p.life>0);
-
+        gameState.items.forEach(i => { i.y += i.speed * gameDt; if(Math.hypot(i.x-gameState.player.x, i.y-gameState.player.y)<40 && !i.collected) collectItem(i); });
+        gameState.playerProjectiles = gameState.playerProjectiles.filter(p=>p.active); gameState.enemyProjectiles = gameState.enemyProjectiles.filter(p=>p.active);
+        gameState.enemies = gameState.enemies.filter(e=>!e.dead && e.y < canvas.height); gameState.items = gameState.items.filter(i=>!i.collected && i.y < canvas.height);
+        gameState.particles.forEach(p => p.life -= dt); gameState.particles = gameState.particles.filter(p=>p.life>0);
         if(gameState.player.hp <= 0) {
-            gameState.mode = STATE.GAME_OVER;
-            document.getElementById('game-over').style.display = 'flex';
+            gameState.mode = STATE.GAME_OVER; document.getElementById('game-over').style.display = 'flex';
             document.getElementById('final-score').innerText = "SCORE: " + gameState.score;
-            document.getElementById('end-aurum').innerText = gameState.runAurum;
-            document.getElementById('end-energy').innerText = gameState.runEnergy;
-            
-            bank.aurum += gameState.runAurum;
-            bank.energy += gameState.runEnergy;
-            saveGame();
+            document.getElementById('end-aurum').innerText = gameState.runAurum; document.getElementById('end-energy').innerText = gameState.runEnergy;
+            bank.aurum += gameState.runAurum; bank.energy += gameState.runEnergy; saveGame();
         }
     }
 
     function draw() {
         ctx.clearRect(0,0,canvas.width,canvas.height);
-        if(gameState.mode === STATE.MENU) return;
-
-        if(isDrawable(assets.bg)) {
-            ctx.drawImage(assets.bg, 0, gameState.bgOffsetY, canvas.width, canvas.height);
-            ctx.drawImage(assets.bg, 0, gameState.bgOffsetY - canvas.height, canvas.width, canvas.height);
-        }
-
-        gameState.items.forEach(i => {
-            if(isDrawable(i.img)) {
-                // FIXED: Force square aspect ratio 40x40
-                ctx.drawImage(i.img, i.x-20, i.y-20, 40, 40);
-            }
-            else { ctx.fillStyle='yellow'; ctx.fillRect(i.x-10, i.y-10, 20, 20); }
-        });
-
+        ctx.save();
+        if(gameState.shake > 0) ctx.translate((Math.random()-0.5)*gameState.shake, (Math.random()-0.5)*gameState.shake);
+        if(gameState.mode === STATE.MENU) { ctx.restore(); return; }
+        if(isDrawable(assets.bg)) { ctx.drawImage(assets.bg, 0, gameState.bgOffsetY, canvas.width, canvas.height); ctx.drawImage(assets.bg, 0, gameState.bgOffsetY - canvas.height, canvas.width, canvas.height); }
+        ctx.fillStyle = "#fff"; gameState.stars.forEach(s => { let y = (s.y + gameState.starsY) % canvas.height; ctx.fillRect(s.x, y, s.s, s.s); });
+        gameState.items.forEach(i => { if(isDrawable(i.img)) { let w = 40; let h = 40; const ratio = i.img.naturalWidth / i.img.naturalHeight; if(ratio > 1) h = w / ratio; else w = h * ratio; ctx.drawImage(i.img, i.x-w/2, i.y-h/2, w, h); } else { ctx.fillStyle='yellow'; ctx.fillRect(i.x-10, i.y-10, 20, 20); } });
         if(isDrawable(assets.player)) ctx.drawImage(assets.player, gameState.player.x-30, gameState.player.y-30, 60, 60);
-
-        if(gameState.mode === STATE.BOSS_FIGHT && gameState.boss && isDrawable(gameState.boss.img)) {
-            ctx.drawImage(gameState.boss.img, gameState.boss.x-60, gameState.boss.y-60, 120, 120);
-        }
-
-        gameState.enemies.forEach(e => {
-            if(isDrawable(e.img)) ctx.drawImage(e.img, e.x-25, e.y-25, 50, 50);
-        });
-
-        gameState.enemyProjectiles.forEach(p => {
-            ctx.fillStyle = p.color;
-            ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill();
-        });
-        ctx.fillStyle = '#00ffff';
-        gameState.playerProjectiles.forEach(p => ctx.fillRect(p.x-2, p.y, 4, 15));
-        
-        gameState.particles.forEach(p => {
-            ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 4, 4);
-        });
-
-        if(gameState.slowTimer > 0) {
-            ctx.fillStyle = 'rgba(0, 255, 255, 0.1)'; 
-            ctx.fillRect(0,0,canvas.width, canvas.height);
-        }
+        if(gameState.mode === STATE.BOSS_FIGHT && gameState.boss && isDrawable(gameState.boss.img)) ctx.drawImage(gameState.boss.img, gameState.boss.x-60, gameState.boss.y-60, 120, 120);
+        gameState.enemies.forEach(e => { if(isDrawable(e.img)) { if(e.flash > 0) { ctx.globalCompositeOperation = "source-atop"; ctx.fillStyle = "white"; ctx.fillRect(e.x-25, e.y-25, 50, 50); ctx.globalCompositeOperation = "source-over"; } else ctx.drawImage(e.img, e.x-25, e.y-25, 50, 50); } });
+        gameState.enemyProjectiles.forEach(p => { ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill(); });
+        ctx.fillStyle = '#00ffff'; gameState.playerProjectiles.forEach(p => ctx.fillRect(p.x-2, p.y, 4, 15));
+        gameState.particles.forEach(p => { ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, 4, 4); });
+        if(gameState.slowTimer > 0) { ctx.fillStyle = 'rgba(0, 255, 255, 0.1)'; ctx.fillRect(0,0,canvas.width, canvas.height); }
+        ctx.restore();
     }
 
     function loop(timestamp) {
         if (!lastTime) lastTime = timestamp;
-        const dt = (timestamp - lastTime) / 1000;
-        lastTime = timestamp;
-        updateGame(dt);
-        draw();
+        const dt = Math.min((timestamp - lastTime) / 1000, 0.1); lastTime = timestamp;
+        try { updateGame(dt); draw(); } catch(e) { console.log(e); }
         requestAnimationFrame(loop);
     }
-    
     loadAssets(() => { requestAnimationFrame(loop); });
 </script>
 </body>
