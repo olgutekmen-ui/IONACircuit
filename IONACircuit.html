@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>IONA's Circuit Dive - Beta v2.4 (Performance Fix)</title>
+    <title>IONA's Circuit Dive - Beta v2.5 (Performance & Stability)</title>
     <style>
         body { 
             margin: 0; background: #000; overflow: hidden; 
@@ -125,10 +125,7 @@
 
 <div id="loading">INITIALIZING NEURAL LINK...</div>
 
-<div id="iap-overlay">
-    <div class="spinner"></div>
-    <div>CONTACTING SERVER...</div>
-</div>
+<div id="iap-overlay"><div class="spinner"></div><div>CONTACTING SERVER...</div></div>
 
 <div id="pause-screen">
     <h1 style="color: #00ffff;">SYSTEM PAUSED</h1>
@@ -186,17 +183,14 @@
 <div id="start-screen">
     <img id="game-logo" src="" alt="SYNC STUDIOS"> 
     <h1 style="color:#fff; text-shadow: 0 0 10px #00ffff; margin-bottom: 5px;">IONA'S CIRCUIT DIVE</h1>
-    
     <div style="display: flex; gap: 40px; color: #fff; margin-bottom: 10px; font-size: 20px;">
         <div class="resource-box"><img src="./assets/aurum.png" class="icon-sm"> <span style="color:#ffd700" id="menu-aurum">0</span></div>
         <div class="resource-box"><img src="./assets/energy.png" class="icon-sm"> <span style="color:#00ffff" id="menu-energy">0</span></div>
     </div>
-
     <div class="mission-board" id="mission-board">
         <div style="color:#fff; text-align:center; font-weight:bold; margin-bottom:5px;">ACTIVE BOUNTIES</div>
         <div id="mission-list"></div>
     </div>
-
     <button class="btn-main" onclick="startGame()">INITIATE DIVE</button>
     <button class="btn-sec" onclick="openShop()">OPEN MARKET</button>
 </div>
@@ -249,7 +243,7 @@
     canvas.width = window.innerWidth > 600 ? 480 : window.innerWidth;
     canvas.height = window.innerHeight;
 
-    // --- AUDIO SYSTEM (OPTIMIZED) ---
+    // --- OPTIMIZED AUDIO SYSTEM ---
     const AudioEngine = {
         ctx: null, enabled: true,
         init: function() { 
@@ -258,16 +252,17 @@
         },
         playTone: function(freq, type, duration, vol) {
             if(!this.enabled || !this.ctx) return;
+            // Throttle to prevent overload
+            if(this.ctx.destination.numberOfInputs > 10) return; 
             const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
             osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
             gain.gain.setValueAtTime(vol, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
             osc.connect(gain); gain.connect(this.ctx.destination);
             osc.start(); osc.stop(this.ctx.currentTime + duration);
-            // Cleanup check handled by browser GC for short sounds
         },
         shoot: function() { this.playTone(800, 'square', 0.1, 0.05); },
-        explosion: function() { this.playTone(100, 'sawtooth', 0.3, 0.1); }, // Simplifed Noise to Tone for Perf
-        collect: function() { this.playTone(1200, 'sine', 0.1, 0.1); this.playTone(1800, 'sine', 0.1, 0.1); },
+        explosion: function() { this.playTone(100, 'sawtooth', 0.3, 0.1); },
+        collect: function() { this.playTone(1200, 'sine', 0.1, 0.1); },
         damage: function() { this.playTone(100, 'sawtooth', 0.2, 0.2); },
         musicBeat: function() {
             if(!this.enabled || !this.ctx) return;
@@ -285,14 +280,14 @@
         document.getElementById('mute-btn').innerText = "AUDIO: " + (AudioEngine.enabled ? "ON" : "OFF");
     }
 
-    // --- GAME DATA ---
-    const CURRENT_VERSION = 2.1;
+    // --- GAME DATA (v2.5) ---
+    const CURRENT_VERSION = 2.5;
     let savedData = JSON.parse(localStorage.getItem('iona_circuit_save_v1')) || { aurum: 0, energy: 0, upgrades: { hp: 0, fireRate: 0, spread: 0 }, missions: [], version: 0 };
     if(!savedData.version || savedData.version < CURRENT_VERSION) { savedData.missions = []; savedData.version = CURRENT_VERSION; }
     if(!savedData.upgrades) savedData.upgrades = { hp: 0, fireRate: 0, spread: 0 };
     let bank = savedData;
 
-    // --- LOGIC ---
+    // --- MISSIONS ---
     const MISSION_TYPES = [
         { id: 'kill', text: "Destroy Enemies", goal: 50, reward: 2 },
         { id: 'score', text: "Earn Score", goal: 2000, reward: 2 },
@@ -311,6 +306,7 @@
     }
 
     function updateMissionProgress(type, amount) {
+        // PERFORMANCE FIX: DO NOT SAVE HERE. Just update memory.
         let updated = false;
         bank.missions.forEach(m => {
             if(!m.completed && m.id === type) {
@@ -318,7 +314,7 @@
                 if(m.current >= m.goal) { m.current = m.goal; m.completed = true; bank.aurum += m.reward; showMessage("BOUNTY COMPLETE!", "#00ff00"); AudioEngine.collect(); updated = true; }
             }
         });
-        if(updated) saveGame();
+        // Save handled at end of run
     }
 
     function renderMissions() {
@@ -352,7 +348,7 @@
     }
     window.addEventListener('keydown', e => { if(e.key === "Escape") togglePause(); });
 
-    // SHOP & IAP
+    // SHOP Logic (Same as before)
     function openShop() { document.getElementById('shop-screen').style.display = 'flex'; updateMenuUI(); AudioEngine.init(); }
     function closeShop() { document.getElementById('shop-screen').style.display = 'none'; }
     function flashButton(btn, success) { btn.classList.add(success ? 'btn-success' : 'btn-error'); setTimeout(() => { btn.classList.remove('btn-success', 'btn-error'); }, 500); }
@@ -410,6 +406,53 @@
         if (type) gameState.items.push({ x: x, y: y, type: type, img: img, w: 40, h: 40, speed: 150 });
     }
 
+    function collectItem(item) {
+        if(item.type === 'healing') { gameState.player.hp = Math.min(gameState.player.hp + 25, gameState.player.maxHp); showMessage("REPAIR +25%", "#00ff00"); } 
+        else if (item.type === 'aurum') { gameState.runAurum += 1; showMessage("+1 AURUM", "#ffd700"); updateMissionProgress('score', 0); }
+        else if (item.type === 'energy') { gameState.runEnergy += 5; showMessage("+5 ENERGY", "#00ffff"); updateMissionProgress('collect', 5); } 
+        else if (item.type === 'timeSlow') { gameState.slowTimer = 5.0; gameState.timeScale = 0.5; showMessage("CHRONO-BREACH ACTIVATED", "#00ffff"); }
+        updateHUD(); item.collected = true;
+    }
+
+    function updateHUD() {
+        document.getElementById('hp-bar').style.width = (gameState.player.hp / gameState.player.maxHp * 100) + "%";
+        document.getElementById('hp-text').innerText = Math.ceil(gameState.player.hp) + " / " + gameState.player.maxHp;
+        document.getElementById('hud-aurum').innerText = gameState.runAurum;
+        document.getElementById('hud-energy').innerText = gameState.runEnergy;
+        document.getElementById('score').innerText = "SCORE: " + gameState.score;
+    }
+
+    function showMessage(text, color) {
+        const msg = document.getElementById('message');
+        msg.innerText = text; msg.style.color = color; msg.style.opacity = 1; msg.classList.remove('blink');
+        setTimeout(() => msg.style.opacity = 0, 1500);
+    }
+
+    function startBossSequence() {
+        gameState.mode = STATE.BOSS_WARNING;
+        gameState.enemies = []; gameState.enemyProjectiles = [];
+        const msg = document.getElementById('message');
+        msg.innerText = "WARNING: PRIMORDIAL DETECTED"; msg.style.color = "red"; msg.style.opacity = 1; msg.classList.add('blink');
+        setTimeout(() => { 
+            // CRASH FIX: Guard clause
+            if(gameState.mode === STATE.BOSS_WARNING) {
+                msg.classList.remove('blink'); msg.style.opacity = 0; spawnBoss(); 
+            }
+        }, 2000);
+    }
+
+    function spawnBoss() {
+        gameState.mode = STATE.BOSS_FIGHT;
+        const index = Math.min(gameState.level, 4);
+        const names = ["", "PRIMORDIAL OF WAR", "PRIMORDIAL OF DECEIT", "PRIMORDIAL OF PLAGUE", "PRIMORDIAL OF GREED"];
+        document.getElementById('boss-hud').style.display = 'block';
+        document.getElementById('boss-name').innerText = names[index];
+        document.getElementById('boss-hp-bar').style.width = '100%';
+        const bossMaxHp = 800 * gameState.level;
+        document.getElementById('boss-hp-text').innerText = bossMaxHp + " / " + bossMaxHp;
+        gameState.boss = { x: canvas.width/2, y: 100, w: 120, h: 120, hp: bossMaxHp, maxHp: bossMaxHp, img: assets['boss'+index], dir: 1, attackTimer: 0, pattern: 0 };
+    }
+
     function updateGame(dt) {
         if(gameState.mode === STATE.MENU || gameState.mode === STATE.GAME_OVER || isPaused) return;
         
@@ -436,10 +479,9 @@
             }
         }
         
-        // --- OPTIMIZATION: Reverse Loop Splicing to prevent GC Stutter ---
         if(gameState.mode === STATE.WAVE && gameState.enemies.length < 30 && Math.random() < (2.5 * gameDt)) { const types = ['enemy1', 'enemy2', 'enemy3', 'enemy4']; gameState.enemies.push({ x: Math.random()*(canvas.width-50)+25, y: -50, img: assets[types[Math.floor(Math.random()*types.length)]], hp: 15 * gameState.level, speed: 150 + (Math.random()*100), w: 50, h: 50, flash: 0 }); }
 
-        // Update Projectiles
+        // REVERSE LOOP SPLICING
         for (let i = gameState.playerProjectiles.length - 1; i >= 0; i--) {
             let p = gameState.playerProjectiles[i];
             p.x += p.vx * dt; p.y += p.vy * dt;
@@ -449,25 +491,18 @@
         for (let i = gameState.enemyProjectiles.length - 1; i >= 0; i--) {
             let p = gameState.enemyProjectiles[i];
             p.x += (p.vx || 0) * gameDt; p.y += Math.abs(p.vy || 450) * gameDt;
-            
-            // Hit Player
             if(Math.hypot(p.x - gameState.player.x, p.y - gameState.player.y) < 25) { 
                 gameState.player.hp -= 10; updateHUD(); p.active = false; gameState.shake = 5; document.body.style.backgroundColor = "#550000"; setTimeout(()=>document.body.style.backgroundColor="#000", 50); AudioEngine.damage(); 
             }
-            
-            // Hit by Player Bullet (Counter)
             for (let j = gameState.playerProjectiles.length - 1; j >= 0; j--) {
                 let pp = gameState.playerProjectiles[j];
                 if(pp.active && p.active && Math.hypot(pp.x-p.x, pp.y-p.y) < 20) { 
                     pp.active = false; p.active = false; gameState.score += 10; 
-                    // Add particle here directly to avoid array churn
                 }
             }
-            
             if(p.y > canvas.height || !p.active) gameState.enemyProjectiles.splice(i, 1);
         }
 
-        // Boss Logic
         if(gameState.mode === STATE.BOSS_FIGHT && gameState.boss) {
             const b = gameState.boss; b.x += (150 * b.dir) * gameDt; if(b.x > canvas.width-60 || b.x < 60) b.dir *= -1;
             b.attackTimer += gameDt;
@@ -494,29 +529,22 @@
             }
         }
 
-        // Enemies Update
         for (let i = gameState.enemies.length - 1; i >= 0; i--) {
             let e = gameState.enemies[i];
             e.y += e.speed * gameDt; if(e.flash > 0) e.flash--;
             if(Math.random() < 0.5 * gameDt) gameState.enemyProjectiles.push({x:e.x, y:e.y+30, color:'#39ff14', active:true});
-            
-            // Collision with Player Bullets
             for (let j = gameState.playerProjectiles.length - 1; j >= 0; j--) {
                 let p = gameState.playerProjectiles[j];
                 if(p.active && Math.abs(p.x-e.x)<30 && Math.abs(p.y-e.y)<30) { 
                     e.dead = true; p.active = false; gameState.score += 100; updateMissionProgress('kill', 1); updateMissionProgress('score', 100); spawnLoot(e.x, e.y); AudioEngine.explosion(); 
                 }
             }
-            
-            // Collision with Player
             if(!e.dead && Math.hypot(e.x-gameState.player.x, e.y-gameState.player.y)<40) { 
                 gameState.player.hp -= 20; updateHUD(); e.dead = true; gameState.shake = 5; document.body.style.backgroundColor = "#550000"; setTimeout(()=>document.body.style.backgroundColor="#000", 50); AudioEngine.damage(); 
             }
-            
             if(e.dead || e.y > canvas.height) gameState.enemies.splice(i, 1);
         }
 
-        // Items Update
         for (let i = gameState.items.length - 1; i >= 0; i--) {
             let item = gameState.items[i];
             item.y += item.speed * gameDt;
@@ -524,7 +552,6 @@
             else if(item.y > canvas.height) gameState.items.splice(i, 1);
         }
 
-        // Particles Update
         for (let i = gameState.particles.length - 1; i >= 0; i--) {
             let p = gameState.particles[i];
             p.life -= dt;
